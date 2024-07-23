@@ -1,0 +1,8 @@
+certs/
+*replit*
+*pyc
+.config
+venv
+main-notokenlimit.py
+.env*
+.vscode*

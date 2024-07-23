@@ -49,10 +49,14 @@ def create_es_client(cloud_id, username, password, host, port):
     else:
         raise ValueError("Either cloud_id or host must be provided")
 
+
 es_leader = create_es_client(LEADER_CLOUD_ID, LEADER_USERNAME, LEADER_PASSWORD, LEADER_HOST, LEADER_PORT)
 es_follower = create_es_client(FOLLOWER_CLOUD_ID, FOLLOWER_USERNAME, FOLLOWER_PASSWORD, FOLLOWER_HOST, FOLLOWER_PORT)
 
-# Define index settings
+# Initialize Faker
+faker = Faker()
+
+# Define the index settings and mappings
 index_settings = {
     "settings": {
         "index": {
@@ -127,7 +131,7 @@ index_settings = {
                     "memory": {
                         "properties": {
                             "utilization": {
-                                "type": "float"
+                                "type": "long"
                             },
                             "rss": {
                                 "type": "long"
@@ -145,6 +149,29 @@ index_settings = {
             },
             "rss": {
                 "type": "long"
+            }
+        }
+    }
+}
+
+# Define the count index settings and mappings
+count_index_settings = {
+    "settings": {
+        "index": {
+            "number_of_replicas": "1",
+            "number_of_shards": "1"
+        }
+    },
+    "mappings": {
+        "properties": {
+            "@timestamp": {
+                "type": "date"
+            },
+            "leader_count": {
+                "type": "integer"
+            },
+            "follower_count": {
+                "type": "integer"
             }
         }
     }
@@ -173,69 +200,49 @@ else:
 
 print(f"Follower index '{INDEX_NAME}' is correctly set up.")
 
+# Setup count_index in follower cluster
 if not es_follower.indices.exists(index=COUNT_INDEX_NAME):
-    es_follower.indices.create(index=COUNT_INDEX_NAME, body={
-        "settings": {
-            "index": {
-                "number_of_replicas": "1",
-                "number_of_shards": "1"
-            }
-        },
-        "mappings": {
-            "properties": {
-                "@timestamp": {
-                    "type": "date"
-                },
-                "leader_count": {
-                    "type": "integer"
-                },
-                "follower_count": {
-                    "type": "integer"
-                }
-            }
-        }
-    })
+    es_follower.indices.create(index=COUNT_INDEX_NAME, body=count_index_settings)
     print(f"Index '{COUNT_INDEX_NAME}' created.")
 
 # Initialize threading event for graceful shutdown
 shutdown_event = threading.Event()
 
-# Initialize Faker
-faker = Faker()
-
-# Function to generate random document
-def generate_document():
+# Generate sample document based on the provided mapping
+def generate_document(timestamp):
     date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
-    return {
+    document = {
         "@timestamp": timestamp.strftime(date_format),
-        "@version": faker.random_number(digits=1),
+        "@version": "1",
         "command": faker.word(),
         "currcpu": round(random.uniform(0.0, 100.0), 2),
-        "machine": faker.word(),
+        "machine": faker.hostname(),
         "meta": {
             "aggregate": {
-                "count": faker.random_number(digits=4),
+                "count": random.randint(1, 1000),
                 "window": {
-                    "begin": faker.date_time_this_year().isoformat(),
-                    "duration": faker.random_number(digits=2),
-                    "end": faker.date_time_this_year().isoformat()
+                    "begin": timestamp.strftime(date_format),
+                    "duration": random.randint(1, 3600),
+                    "end": (timestamp + datetime.timedelta(seconds=random.randint(1, 3600))).strftime(date_format)
                 }
             },
-            "count": faker.random_number(digits=4),
+            "count": random.randint(1, 1000),
             "cpu": {
                 "utilization": round(random.uniform(0.0, 100.0), 2),
-                "cores": random.randint(1, 16),
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                "cores": random.randint(0, 10),
+                "timestamp": timestamp.strftime(date_format),
+                "topic": faker.word()
             },
             "memory": {
-                "utilization": round(random.uniform(0.0, 100.0), 2),
+                "utilization": random.randint(1, 10000),
                 "rss": faker.random_number(digits=7),
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                "timestamp": timestamp.strftime(date_format)
             }
         },
-        "pid": faker.random_number(digits=5),
-        "rss": faker.random_number(digits=7)
+        "pid": random.randint(1, 65535),
+        "rss": random.randint(1, 1000000)
     }
+    return document
 
 # Function for indexing data for a specific day
 def index_data_for_day(day):
@@ -249,8 +256,7 @@ def index_data_for_day(day):
             break
         random_second = random.randint(0, 86400 - 1)
         event_timestamp = start_date + datetime.timedelta(seconds=random_second)
-        document = generate_document()
-        document["@timestamp"] = event_timestamp.isoformat()
+        document = generate_document(event_timestamp)
         action = {
             "_index": INDEX_NAME,
             "_source": document
@@ -277,8 +283,7 @@ def index_realtime_data():
         for _ in range(EPS):
             if shutdown_event.is_set():
                 break
-            document = generate_document()
-            document["@timestamp"] = current_timestamp.isoformat()
+            document = generate_document(current_timestamp)
             action = {
                 "_index": INDEX_NAME,
                 "_source": document
@@ -345,7 +350,7 @@ def query_and_log_counts():
         print(f"{current_timestamp} - Leader Count: {leader_count}, Follower Count: {follower_count}")
 
         # Sleep for a specified interval before querying again
-        time.sleep(30)
+        time.sleep(15)
 
 # Signal handler for graceful shutdown
 def signal_handler(sig, frame):

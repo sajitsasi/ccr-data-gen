@@ -57,6 +57,7 @@ Follower_ELASTIC_PASSWORD=<Your-Follower-Password>
 ########################Index Settings$#######################
 INDEX_NAME=<Your-Index-Name>
 EVENTS_PER_SECOND=<Number-of-Events-Per-Second>
+COUNT_INDEX_NAME=<Count-Index-Name> # Created on follower Cluster
 ########################Index Settings$#######################
 ```
 

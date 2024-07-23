@@ -1,0 +1,26 @@
+########################Leader Cluster########################
+# Leader Cluster Elastic Cloud info
+LEADER_ELASTIC_CLOUD_ID=<Your-Leader-Cloud-ID>
+# Leader Cluster self-managed info
+LEADER_ELASTIC_HOST=<Your-Leader-Host>  # Optional if using Cloud ID
+LEADER_ELASTIC_PORT=9200  # Default port
+# Leader Cluster auth info
+LEADER_ELASTIC_USERNAME=<Your-Leader-Username>
+LEADER_ELASTIC_PASSWORD=<Your-Leader-Password>
+########################Leader Cluster########################
+
+#######################Follower Cluster#######################
+# Follower Cluster Elastic Cloud info
+FOLLOWER_ELASTIC_CLOUD_ID=<Your-Follower-Cloud-ID>
+# Follower Cluster self-managed info
+FOLLOWER_ELASTIC_HOST=<Your-Follower-Host>  # Optional if using Cloud ID
+FOLLOWER_ELASTIC_PORT=9200  # Default port
+# Follower Cluster auth info
+FOLLOWER_ELASTIC_USERNAME=<Your-Follower-Username>
+FOLLOWER_ELASTIC_PASSWORD=<Your-Follower-Password>
+#######################Follower Cluster#######################
+
+########################Index Settings$#######################
+INDEX_NAME=<Your-Index-Name>
+EVENTS_PER_SECOND=<Number-of-Events-Per-Second>
+########################Index Settings$#######################

@@ -172,6 +172,9 @@ count_index_settings = {
             },
             "follower_count": {
                 "type": "integer"
+            },
+            "global_index_lag": {
+                "type": "long"
             }
         }
     }
@@ -330,24 +333,34 @@ def query_and_log_counts():
         # Get the current timestamp in ISO format
         current_timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-        # Query the document count from the leader index
-        leader_count = es_leader.count(index=INDEX_NAME)['count']
-
         # Query the document count from the follower index
         follower_count = es_follower.count(index=INDEX_NAME)['count']
+
+        # Get CCR stats from follower
+        es_follower_stats = es_follower.ccr.stats()
+        global_lag = -1
+        if es_follower_stats['follow_stats']['indices']:
+            idx = next((i for i, d in enumerate(es_follower_stats['follow_stats']['indices']) 
+                        if any(INDEX_NAME in str(value) for value in d.values())))
+            if idx is not None:
+                global_lag = es_follower_stats['follow_stats']['indices'][idx]['total_global_checkpoint_lag']
+
+        # Query the document count from the leader index
+        leader_count = es_leader.count(index=INDEX_NAME)['count']
 
         # Prepare the log document
         log_document = {
             "@timestamp": current_timestamp,
             "leader_count": leader_count,
-            "follower_count": follower_count
+            "follower_count": follower_count,
+            "global_index_lag": global_lag
         }
 
         # Index the log document into the count index
         es_follower.index(index=COUNT_INDEX_NAME, document=log_document)
 
         # Print the counts to the console (optional)
-        print(f"{current_timestamp} - Leader Count: {leader_count}, Follower Count: {follower_count}")
+        print(f"{current_timestamp} - Leader Count: {leader_count}, Follower Count: {follower_count}, Lag ops:  {global_lag}")
 
         # Sleep for a specified interval before querying again
         time.sleep(15)

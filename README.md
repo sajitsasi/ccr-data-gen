@@ -84,8 +84,7 @@ The script uses multiple threads to index historical data (30 days back) into th
 A separate thread continuously indexes real-time data into the Leader index based on the specified events per second (EPS) configured.
 
 ### 5. Replication Verification
-Another thread separately queries the indices in both the Leader and Follower clusters to get the document count in each. 
-Note that since the Follower cluster is queried after the Leader cluster, there may be some instances where the document count on the Follower cluster is higher than the Leader cluster at that time interval.
+Another thread separately queries the indices in both the Leader and Follower clusters to get the document count in each as well as getting the operations lag between the leader and the follower.
 
 ### 6. Elasticsearch
 Note that this has been tested on 8.14, please open an issue if you need this to work for an earlier 8.X version
